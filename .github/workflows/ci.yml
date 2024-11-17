@@ -39,7 +39,7 @@ jobs:
 
       - name: Update Dockerfile with new version
         run: |
-          sed -i "s/my-app:${{ env.old_version }}/my-app:${{ env.new_version }}/g" Dockerfile
+          sed -i "s/my-app-[0-9]*\.[0-9]*\.[0-9]*\.jar/my-app-${{ env.new_version }}.jar/g" Dockerfile
           echo "Updated Dockerfile to use version ${{ env.new_version }}"
 
       - name: Commit updated Dockerfile
@@ -47,5 +47,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Dockerfile
-          git commit -m "Updated Dockerfile to version ${{ env.new_version }}"
+          git diff --cached --quiet || git commit -m "Updated Dockerfile to version ${{ env.new_version }}"
           git push
