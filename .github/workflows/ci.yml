@@ -36,10 +36,12 @@ jobs:
           git add pom.xml
           git commit -m "Incremented version to ${{ env.new_version }}"
           git push
+
       - name: Update Dockerfile with new version
         run: |
           sed -i "s/my-app-[0-9]*\.[0-9]*\.[0-9]*\.jar/my-app-${{ env.new_version }}.jar/g" Dockerfile
           echo "Updated Dockerfile to use version ${{ env.new_version }}"
+
       - name: Commit updated Dockerfile
         run: |
           git config user.name "GitHub Actions"
@@ -47,6 +49,7 @@ jobs:
           git add Dockerfile
           git diff --cached --quiet || git commit -m "Updated Dockerfile to version ${{ env.new_version }}"
           git push
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -58,8 +61,30 @@ jobs:
           docker build -t oshri1997/my-app:${{ env.new_version }} .
           docker tag oshri1997/my-app:${{ env.new_version }} oshri1997/my-app:latest
           echo "Docker image built and tagged with version ${{ env.new_version }}"
+
       - name: Push Docker image to Docker Hub
         run: |
           docker push oshri1997/my-app:${{ env.new_version }}
           docker push oshri1997/my-app:latest
           echo "Docker image pushed to Docker Hub"
+
+      - name: SSH to EC2 and deploy application
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ubuntu@3.75.199.206 << EOF
+          # Update system packages
+          sudo apt update -y
+          sudo apt upgrade -y
+
+          # Install Docker if not installed
+          if ! [ -x "$(command -v docker)" ]; then
+              sudo apt install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+          fi
+
+          # Pull and run the Docker image
+          sudo docker pull oshri1997/my-app:latest
+          sudo docker run --rm -it oshri1997/my-app:latest
+          EOF
+        env:
+          EC2_IP: 3.75.199.206
