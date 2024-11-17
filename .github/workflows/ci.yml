@@ -25,13 +25,13 @@ jobs:
           new_version=$(echo $version | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
           echo "New version: $new_version"
           sed -i "s/<version>$version<\/version>/<version>$new_version<\/version>/" pom.xml
-          echo "old_version=$version" >> $GITHUB_ENV
           echo "new_version=$new_version" >> $GITHUB_ENV
           echo "::set-output name=new_version::$new_version"
         shell: bash
+
       - name: Debug version output
         run: |
-          echo "Versioning output: ${{ steps.increment_version.outputs.new_version }}"
+          echo "New version is: ${{ steps.increment_version.outputs.new_version }}"
 
   build-docker:
     runs-on: ubuntu-latest
@@ -43,7 +43,13 @@ jobs:
       - name: Debug versioning output
         run: |
           echo "Building Docker image with version: ${{ needs.versioning.outputs.new_version }}"
-          echo "Environment version: ${{ env.new_version }}"
+
+      - name: Validate version
+        run: |
+          if [ -z "${{ needs.versioning.outputs.new_version }}" ]; then
+            echo "Error: new_version is empty."
+            exit 1
+          fi
 
       - name: Build Docker image
         run: |
