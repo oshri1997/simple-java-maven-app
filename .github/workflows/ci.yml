@@ -75,5 +75,6 @@ jobs:
               fi
         
               # Pull and run the Docker image
+              sudo docker system prune -a -f
               sudo docker pull oshri1997/my-app:latest
               sudo docker run --rm -d oshri1997/my-app:latest
