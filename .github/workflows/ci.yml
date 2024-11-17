@@ -46,15 +46,16 @@ jobs:
 
       - name: Update Dockerfile with new version
         run: |
-          sed -i "s/my-app-[0-9]*\.[0-9]*\.[0-9]*\.jar/my-app-${{ needs.versioning.outputs.new_version }}.jar/g" Dockerfile
-          echo "Updated Dockerfile to use version ${{ needs.versioning.outputs.new_version }}"
+          sed -i "s/my-app-[0-9]*\.[0-9]*\.[0-9]*\.jar/my-app-${{ env.new_version }}.jar/g" Dockerfile
+          echo "Updated Dockerfile to use version ${{ env.new_version }}"
 
       - name: Commit updated Dockerfile
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          git pull --rebase origin master
           git add Dockerfile
-          git diff --cached --quiet || git commit -m "Updated Dockerfile to version ${{ needs.versioning.outputs.new_version }}"
+          git diff --cached --quiet || git commit -m "Updated Dockerfile to version ${{ env.new_version }}"
           git push
 
   build-and-push-docker:
@@ -74,10 +75,8 @@ jobs:
         run: |
           docker build -t oshri1997/my-app:${{ needs.versioning.outputs.new_version }} .
           docker tag oshri1997/my-app:${{ needs.versioning.outputs.new_version }} oshri1997/my-app:latest
-          echo "Docker image built and tagged with version ${{ needs.versioning.outputs.new_version }}"
 
       - name: Push Docker image to Docker Hub
         run: |
           docker push oshri1997/my-app:${{ needs.versioning.outputs.new_version }}
           docker push oshri1997/my-app:latest
-          echo "Docker image pushed to Docker Hub"
