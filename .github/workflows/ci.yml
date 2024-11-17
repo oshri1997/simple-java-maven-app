@@ -17,11 +17,25 @@ jobs:
       - name: Set new version
         id: set-version
         run: |
-          # Extract version from pom.xml
+          # Extract current version from pom.xml
           version=$(cat pom.xml | grep -oPm1 "(?<=<version>)[^<]+")
           new_version=$(echo $version | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
+          echo "Current version: $version"
           echo "New version: $new_version"
+
+          # Update pom.xml with the new version
+          sed -i "s/<version>$version<\/version>/<version>$new_version<\/version>/" pom.xml
+          
+          # Save the new version as an output
           echo "::set-output name=version::$new_version"
+
+      - name: Commit updated pom.xml
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add pom.xml
+          git commit -m "Updated version to ${{ steps.set-version.outputs.version }}"
+          git push
 
   build-docker:
     needs: set-version
@@ -60,7 +74,7 @@ jobs:
             key: ${{ secrets.EC2_SSH_KEY }}
             port: 22
             script: |
-              echo "Deploying version: ${{ needs.set-version.outputs.version }}"
+              echo "Deploying version: ${{ needs.build-docker.outputs.version }}"
               # Update system packages
               sudo apt update -y
               sudo apt upgrade -y
@@ -74,5 +88,5 @@ jobs:
 
               # Pull and run the Docker image
               sudo docker system prune -a -f
-              sudo docker pull oshri1997/my-app:${{ needs.set-version.outputs.version }}
-              sudo docker run --rm -d oshri1997/my-app:${{ needs.set-version.outputs.version }}
+              sudo docker pull oshri1997/my-app:latest
+              sudo docker run --rm -d oshri1997/my-app:latest
