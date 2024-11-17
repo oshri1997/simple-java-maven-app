@@ -68,23 +68,26 @@ jobs:
           docker push oshri1997/my-app:latest
           echo "Docker image pushed to Docker Hub"
 
-      - name: SSH to EC2 and deploy application
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ubuntu@3.75.199.206 << EOF
-          # Update system packages
-          sudo apt update -y
-          sudo apt upgrade -y
-
-          # Install Docker if not installed
-          if ! [ -x "$(command -v docker)" ]; then
-              sudo apt install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-          fi
-
-          # Pull and run the Docker image
-          sudo docker pull oshri1997/my-app:latest
-          sudo docker run --rm -it oshri1997/my-app:latest
-          EOF
-        env:
-          EC2_IP: 3.75.199.206
+          - name: Deploy to EC2 via SSH
+          uses: appleboy/ssh-action@v0.1.8
+          with:
+            host: 3.75.199.206
+            username: ubuntu
+            key: ${{ secrets.EC2_SSH_KEY }}
+            port: 22
+            script: |
+              # Update system packages
+              sudo apt update -y
+              sudo apt upgrade -y
+        
+              # Install Docker if not installed
+              if ! [ -x "$(command -v docker)" ]; then
+                  sudo apt install -y docker.io
+                  sudo systemctl start docker
+                  sudo systemctl enable docker
+              fi
+        
+              # Pull and run the Docker image
+              sudo docker pull oshri1997/my-app:latest
+              sudo docker run --rm -it oshri1997/my-app:latest
+        
