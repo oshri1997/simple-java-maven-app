@@ -6,39 +6,25 @@ on:
       - master
 
 jobs:
-  update-version:
+  set-version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Increment JAR version
-        id: increment_version
+      - name: Set new version
+        id: set-version
         run: |
+          # Extract version from pom.xml
           version=$(cat pom.xml | grep -oPm1 "(?<=<version>)[^<]+")
           new_version=$(echo $version | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
           echo "New version: $new_version"
-          sed -i "s/<version>$version<\/version>/<version>$new_version<\/version>/" pom.xml
-          echo "old_version=$version" >> $GITHUB_ENV
-          echo "new_version=$new_version" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Commit updated version
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add pom.xml
-          git commit -m "Incremented version to ${{ env.new_version }}"
-          git push
+          echo "::set-output name=version::$new_version"
 
   build-docker:
-    needs: update-version
+    needs: set-version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -52,15 +38,15 @@ jobs:
 
       - name: Build and tag Docker image
         run: |
-          docker build -t oshri1997/my-app:${{ env.new_version }} .
-          docker tag oshri1997/my-app:${{ env.new_version }} oshri1997/my-app:latest
-          echo "Docker image built and tagged with version ${{ env.new_version }}"
+          echo "Building Docker image with version: ${{ needs.set-version.outputs.version }}"
+          docker build -t oshri1997/my-app:${{ needs.set-version.outputs.version }} .
+          docker tag oshri1997/my-app:${{ needs.set-version.outputs.version }} oshri1997/my-app:latest
 
       - name: Push Docker image to Docker Hub
         run: |
-          docker push oshri1997/my-app:${{ env.new_version }}
+          echo "Pushing Docker image with version: ${{ needs.set-version.outputs.version }}"
+          docker push oshri1997/my-app:${{ needs.set-version.outputs.version }}
           docker push oshri1997/my-app:latest
-          echo "Docker image pushed to Docker Hub"
 
   deploy-to-ec2:
     needs: build-docker
@@ -74,18 +60,19 @@ jobs:
             key: ${{ secrets.EC2_SSH_KEY }}
             port: 22
             script: |
+              echo "Deploying version: ${{ needs.set-version.outputs.version }}"
               # Update system packages
               sudo apt update -y
               sudo apt upgrade -y
-        
+
               # Install Docker if not installed
               if ! [ -x "$(command -v docker)" ]; then
                   sudo apt install -y docker.io
                   sudo systemctl start docker
                   sudo systemctl enable docker
               fi
-        
+
               # Pull and run the Docker image
               sudo docker system prune -a -f
-              sudo docker pull oshri1997/my-app:latest
-              sudo docker run --rm -d oshri1997/my-app:latest
+              sudo docker pull oshri1997/my-app:${{ needs.set-version.outputs.version }}
+              sudo docker run --rm -d oshri1997/my-app:${{ needs.set-version.outputs.version }}
