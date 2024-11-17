@@ -19,11 +19,14 @@ jobs:
           distribution: 'temurin'
 
       - name: Increment JAR version
+        id: increment_version
         run: |
           version=$(cat pom.xml | grep -oPm1 "(?<=<version>)[^<]+")
           new_version=$(echo $version | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
           echo "New version: $new_version"
           sed -i "s/<version>$version<\/version>/<version>$new_version<\/version>/" pom.xml
+          echo "old_version=$version" >> $GITHUB_ENV
+          echo "new_version=$new_version" >> $GITHUB_ENV
         shell: bash
 
       - name: Commit updated version
@@ -31,5 +34,18 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add pom.xml
-          git commit -m "Incremented version to $new_version"
+          git commit -m "Incremented version to ${{ env.new_version }}"
+          git push
+
+      - name: Update Dockerfile with new version
+        run: |
+          sed -i "s/my-app:${{ env.old_version }}/my-app:${{ env.new_version }}/g" Dockerfile
+          echo "Updated Dockerfile to use version ${{ env.new_version }}"
+
+      - name: Commit updated Dockerfile
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Dockerfile
+          git commit -m "Updated Dockerfile to version ${{ env.new_version }}"
           git push
